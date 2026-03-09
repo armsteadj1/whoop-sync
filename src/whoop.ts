@@ -40,3 +40,23 @@ export async function* fetchSleep(token: string, start?: string): AsyncGenerator
 export async function* fetchCycles(token: string, start?: string): AsyncGenerator<any[]> {
   yield* paginate(token, '/cycle', start);
 }
+
+export async function* fetchRecovery(token: string, start?: string): AsyncGenerator<any[]> {
+  yield* paginate(token, '/recovery', start);
+}
+
+export async function refreshTokens(config: Record<string, string>): Promise<Record<string, string>> {
+  const res = await fetch('https://api.prod.whoop.com/oauth/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: config.client_id,
+      client_secret: config.client_secret,
+      refresh_token: config.refresh_token,
+    }).toString(),
+  });
+  if (!res.ok) throw new Error(`Token refresh failed: ${await res.text()}`);
+  const tokens = await res.json() as Record<string, string>;
+  return tokens;
+}

@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { initDb } from './db';
 import { sync } from './sync';
-import { WhoopAuthError } from './whoop';
+import { WhoopAuthError, refreshTokens } from './whoop';
 
 const configPath = path.join(process.cwd(), 'config.json');
 
@@ -103,8 +103,8 @@ async function cmdAuth(args: string[]) {
 }
 
 async function cmdSync(args: string[]) {
-  const config = loadConfig();
-  const token: string = config.access_token;
+  let config = loadConfig();
+  let token: string = config.access_token;
 
   if (!token) {
     console.error('No access_token in config.json. Run: whoop-sync auth');
@@ -116,7 +116,24 @@ async function cmdSync(args: string[]) {
 
   const db = initDb();
 
-  await sync(db, token, full);
+  try {
+    await sync(db, token, full);
+  } catch (err) {
+    if (err instanceof WhoopAuthError && config.refresh_token && config.client_id && config.client_secret) {
+      console.log('Access token expired, refreshing...');
+      const tokens = await refreshTokens(config);
+      config.access_token = tokens.access_token;
+      if (tokens.refresh_token) config.refresh_token = tokens.refresh_token;
+      if (tokens.expires_in) {
+        config.expires_at = new Date(Date.now() + Number(tokens.expires_in) * 1000).toISOString();
+      }
+      saveConfig(config);
+      console.log('Token refreshed, retrying sync...');
+      await sync(db, config.access_token, full);
+    } else {
+      throw err;
+    }
+  }
   console.log('Sync complete.');
 }
 
@@ -130,6 +147,7 @@ async function cmdStatus() {
   const workoutCount = (db.prepare(`SELECT COUNT(*) as n FROM workouts`).get() as { n: number }).n;
   const sleepCount = (db.prepare(`SELECT COUNT(*) as n FROM sleep`).get() as { n: number }).n;
   const cycleCount = (db.prepare(`SELECT COUNT(*) as n FROM cycles`).get() as { n: number }).n;
+  const recoveryCount = (db.prepare(`SELECT COUNT(*) as n FROM recovery`).get() as { n: number }).n;
 
   console.log(`Whoop Sync Status
 =================
@@ -137,6 +155,7 @@ Last sync:  ${lastSync}
 Workouts:   ${workoutCount}
 Sleep:      ${sleepCount}
 Cycles:     ${cycleCount}
+Recovery:   ${recoveryCount}
 Token:      ${config.access_token ? 'present' : 'missing'}`);
 }
 

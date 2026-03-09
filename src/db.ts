@@ -51,6 +51,19 @@ export function initDb(): Database.Database {
       synced_at TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS recovery (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER,
+      cycle_id INTEGER,
+      created_at TEXT,
+      recovery_score REAL,
+      hrv_rmssd_milli REAL,
+      resting_heart_rate REAL,
+      spo2_percentage REAL,
+      skin_temp_celsius REAL,
+      synced_at TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS sync_state (
       key TEXT PRIMARY KEY,
       value TEXT

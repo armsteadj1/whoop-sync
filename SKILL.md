@@ -45,8 +45,19 @@ Location: `~/projects/whoop-sync/fitness.db`
 - `avg_hr`, `max_hr`
 - `synced_at`
 
+**recovery**
+- `id` — Recovery ID (PK)
+- `cycle_id` — Associated cycle ID
+- `created_at` — ISO timestamp
+- `recovery_score` — 0-100 Whoop recovery score
+- `hrv_rmssd_milli` — HRV in milliseconds
+- `resting_heart_rate` — RHR in bpm
+- `spo2_percentage` — Blood oxygen %
+- `skin_temp_celsius` — Skin temperature
+- `synced_at`
+
 **sync_state**
-- `key` — 'last_workout_start', 'last_sleep_start', 'last_cycle_start'
+- `key` — 'last_workout_start', 'last_sleep_start', 'last_cycle_start', 'last_recovery_start'
 - `value` — ISO timestamp of last synced record
 
 ## Useful SQL Queries
@@ -84,6 +95,23 @@ FROM sleep ORDER BY start DESC LIMIT 7;
 -- Recent workouts
 SELECT sport_name, start, strain, avg_hr, max_hr
 FROM workouts ORDER BY start DESC LIMIT 10;
+
+-- HRV trend last 14 days
+SELECT date(created_at) as day, recovery_score, hrv_rmssd_milli, resting_heart_rate, spo2_percentage
+FROM recovery ORDER BY created_at DESC LIMIT 14;
+
+-- Average HRV by week (last 8 weeks)
+SELECT strftime('%Y-W%W', created_at) as week,
+  round(avg(hrv_rmssd_milli), 1) as avg_hrv,
+  round(avg(recovery_score), 1) as avg_recovery,
+  round(avg(resting_heart_rate), 1) as avg_rhr
+FROM recovery
+WHERE created_at >= date('now', '-56 days')
+GROUP BY week ORDER BY week DESC;
+
+-- Low recovery days (score < 33)
+SELECT date(created_at) as day, recovery_score, hrv_rmssd_milli, resting_heart_rate
+FROM recovery WHERE recovery_score < 33 ORDER BY created_at DESC LIMIT 10;
 ```
 
 ## Query the DB directly

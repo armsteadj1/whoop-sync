@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { fetchWorkouts, fetchSleep, fetchCycles } from './whoop';
+import { fetchWorkouts, fetchSleep, fetchCycles, fetchRecovery } from './whoop';
 
 const NOW = new Date().toISOString();
 
@@ -68,6 +68,24 @@ function upsertCycle(db: Database.Database, c: any): void {
   );
 }
 
+function upsertRecovery(db: Database.Database, r: any): void {
+  const score = r.score ?? {};
+  db.prepare(`
+    INSERT OR REPLACE INTO recovery
+      (id, user_id, cycle_id, created_at, recovery_score, hrv_rmssd_milli, resting_heart_rate, spo2_percentage, skin_temp_celsius, synced_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    String(r.id), r.user_id, r.cycle_id ?? null,
+    r.created_at ?? null,
+    score.recovery_score ?? null,
+    score.hrv_rmssd_milli ?? null,
+    score.resting_heart_rate ?? null,
+    score.spo2_percentage ?? null,
+    score.skin_temp_celsius ?? null,
+    NOW
+  );
+}
+
 export async function sync(db: Database.Database, token: string, full: boolean): Promise<void> {
   const startKey = full ? undefined : undefined; // will use sync_state for incremental
 
@@ -118,4 +136,21 @@ export async function sync(db: Database.Database, token: string, full: boolean):
   }
   if (latestCycleStart) setSyncState(db, 'last_cycle_start', latestCycleStart);
   console.log(`  cycles: ${cycleCount} synced`);
+
+  // Recovery
+  const lastRecovery = full ? undefined : getSyncState(db, 'last_recovery_start');
+  console.log(`Syncing recovery${lastRecovery ? ` from ${lastRecovery}` : ' (full)'}...`);
+  let recoveryCount = 0;
+  let latestRecoveryStart: string | undefined;
+  for await (const batch of fetchRecovery(token, lastRecovery)) {
+    for (const r of batch) {
+      upsertRecovery(db, r);
+      recoveryCount++;
+      const ts = r.created_at ?? r.start;
+      if (ts && (!latestRecoveryStart || ts > latestRecoveryStart)) latestRecoveryStart = ts;
+    }
+    process.stdout.write(`  recovery: ${recoveryCount}\r`);
+  }
+  if (latestRecoveryStart) setSyncState(db, 'last_recovery_start', latestRecoveryStart);
+  console.log(`  recovery: ${recoveryCount} synced`);
 }
