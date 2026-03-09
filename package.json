@@ -1,0 +1,17 @@
+{
+  "name": "whoop-sync",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc",
+    "sync": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.10",
+    "@types/node": "^20.12.7"
+  }
+}
