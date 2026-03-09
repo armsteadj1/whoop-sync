@@ -75,7 +75,7 @@ function upsertRecovery(db: Database.Database, r: any): void {
       (id, user_id, cycle_id, created_at, recovery_score, hrv_rmssd_milli, resting_heart_rate, spo2_percentage, skin_temp_celsius, synced_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    String(r.id), r.user_id, r.cycle_id ?? null,
+    String(r.cycle_id), r.user_id, r.cycle_id ?? null,
     r.created_at ?? null,
     score.recovery_score ?? null,
     score.hrv_rmssd_milli ?? null,
