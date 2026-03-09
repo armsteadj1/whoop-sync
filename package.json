@@ -1,9 +1,16 @@
 {
-  "name": "whoop-sync",
+  "name": "@armsteadj1/whoop-sync",
   "version": "1.0.0",
+  "bin": {
+    "whoop-sync": "./dist/index.js"
+  },
   "scripts": {
     "build": "tsc",
-    "sync": "ts-node src/index.ts"
+    "start": "ts-node src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "better-sqlite3": "^9.4.3",
