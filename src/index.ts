@@ -114,13 +114,33 @@ async function cmdSync(args: string[]) {
   const full = args.includes('--full');
   if (full) console.log('Running full sync...');
 
+  // Proactively refresh if token is expired or expires within 5 minutes
+  const expiresAt = config.expires_at ? new Date(config.expires_at).getTime() : 0;
+  const fiveMinutes = 5 * 60 * 1000;
+  if (config.refresh_token && config.client_id && config.client_secret && Date.now() >= expiresAt - fiveMinutes) {
+    console.log('Proactively refreshing token before expiry...');
+    try {
+      const tokens = await refreshTokens(config);
+      config.access_token = tokens.access_token;
+      token = tokens.access_token;
+      if (tokens.refresh_token) config.refresh_token = tokens.refresh_token;
+      if (tokens.expires_in) {
+        config.expires_at = new Date(Date.now() + Number(tokens.expires_in) * 1000).toISOString();
+      }
+      saveConfig(config);
+      console.log(`Token refreshed, expires_at: ${config.expires_at}`);
+    } catch (refreshErr) {
+      console.warn('Proactive token refresh failed, will attempt sync anyway:', refreshErr);
+    }
+  }
+
   const db = initDb();
 
   try {
     await sync(db, token, full);
   } catch (err) {
     if (err instanceof WhoopAuthError && config.refresh_token && config.client_id && config.client_secret) {
-      console.log('Access token expired, refreshing...');
+      console.log('Access token expired mid-sync, refreshing...');
       const tokens = await refreshTokens(config);
       config.access_token = tokens.access_token;
       if (tokens.refresh_token) config.refresh_token = tokens.refresh_token;
